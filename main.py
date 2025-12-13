@@ -7,7 +7,15 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from config import BOT_TOKEN, GROUP_ID, THREAD_REPORTS, THREAD_TOPS
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+GROUP_ID = int(os.getenv("GROUP_ID"))
+THREAD_REPORTS = int(os.getenv("THREAD_REPORTS"))
+THREAD_TOPS = int(os.getenv("THREAD_TOPS"))
+
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
