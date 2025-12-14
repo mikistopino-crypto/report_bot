@@ -25,17 +25,6 @@ class ReportStates(StatesGroup):
     waiting_fans = State()
     waiting_tops = State()
 
-async def fake_web_server():
-    app = web.Application()
-    app.router.add_get('/', lambda _: web.Response(text='OK'))
-    app.router.add_get('/health', lambda _: web.Response(text='healthy'))
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 10000)
-    await site.start()
-    print("✅ Fake HTTP server на порту 10000")
-    await asyncio.Event().wait()
-
 def get_today_date():
     return datetime.now().strftime("%d.%m.%Y")
 
@@ -94,7 +83,7 @@ async def session_chosen(message: Message, state: FSMContext):
     await state.set_state(ReportStates.waiting_shift)
 
 @dp.message(ReportStates.waiting_shift)
-async def shift_chosen(message: Message, state: FSMContext):  # ✅ СКОБКИ ДОБАВЛЕНЫ!
+async def shift_chosen(message: Message, state: FSMContext):
     if message.text == "⬅️ Отмена":
         await state.clear()
         await message.answer("❌ Отмена.", reply_markup=get_main_keyboard())
@@ -129,4 +118,65 @@ async def fans_chosen(message: Message, state: FSMContext):
     await message.answer("🏆 Отчёт по топам:\nПример: `M*rc C*lm*r @u44*72*2*5 типнул просто так`")
     await state.set_state(ReportStates.waiting_tops)
 
-@dp
+@dp.message(ReportStates.waiting_tops)
+async def finalize_report(message: Message, state: FSMContext):
+    data = await state.get_data()
+    
+    main_report = f"""📊 СМЕННЫЙ ОТЧЁТ
+
+📅 {data['date']} / {data['shift']} / {data['user']}
+💰 Баланс: ${data['balance']} (с вычетом комиссий)
+✅ Чек-лист: {data['checklist']}
+📝 Смена: {data['shift_description']}
+👥 Фаны: {data['fans']}"""
+    
+    tops_report = f"""🏆 ТОПЫ ДНЯ
+
+📅 {data['date']} {data['shift']}
+👤 Сменщик: {data['user']}
+📝 {message.text}"""
+    
+    group_id = os.getenv('GROUP_ID')
+    thread_reports = os.getenv('THREAD_REPORTS')
+    thread_tops = os.getenv('THREAD_TOPS')
+    
+    await bot.send_message(chat_id=group_id, message_thread_id=int(thread_reports), text=main_report)
+    await bot.send_message(chat_id=group_id, message_thread_id=int(thread_tops), text=tops_report)
+    
+    await message.answer("✅ Отчёт полностью отправлен!\n📊 Основной → REPORTS\n🏆 Топы → TOPS", reply_markup=get_main_keyboard())
+    await state.clear()
+
+@dp.message(F.text == "ℹ️ Инструкция")
+async def show_help(message: Message):
+    await message.answer(
+        "📖 Пошагово:\n1️⃣ Сессия → 2️⃣ Смена → 3️⃣ Баланс → 4️⃣ Чек-лист\n5️⃣ Описание → 6️⃣ Фаны → 7️⃣ Топы\n✅ Отчёты только после топов!",
+        reply_markup=get_main_keyboard()
+    )
+
+@dp.message(F.text == "⬅️ Отмена")
+async def cancel_handler(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("❌ Отмена.", reply_markup=get_main_keyboard())
+
+# ✅ WEBHOOK + RENDER PORT COMPATIBLE
+async def on_startup():
+    webhook_url = f"https://report-bot-dqxt.onrender.com/webhook"
+    await bot.set_webhook(webhook_url)
+    print("🚀 Webhook установлен!")
+
+async def on_shutdown():
+    await bot.delete_webhook()
+    print("🔌 Webhook удалён!")
+
+async def start_bot():
+    print("🚀 Starting bot...")
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
+    await dp.start_polling(bot)
+
+async def main():
+    await start_bot()
+
+if __name__ == '__main__':
+    print("🎯 Report bot v4.0 — WEBHOOK + RENDER!")
+    asyncio.run(main())
