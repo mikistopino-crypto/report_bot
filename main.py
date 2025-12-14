@@ -8,6 +8,7 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiohttp import web
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -157,14 +158,31 @@ async def cancel_handler(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("❌ Отмена.", reply_markup=get_main_keyboard())
 
+async def fake_web_server():
+    """Fake HTTP server для Render PORT 10000"""
+    app = web.Application()
+    app.router.add_get('/', lambda _: web.Response(text='Report Bot OK'))
+    app.router.add_get('/health', lambda _: web.Response(text='healthy'))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 10000)
+    await site.start()
+    print("✅ Fake HTTP server на порту 10000 (Render happy!)")
+    await asyncio.Event().wait()
+
 async def main():
-    print("🚀 Report Bot v7.0 — НОВЫЙ ТОКЕН!")
+    print("🚀 Report Bot v8.0 — НОВЫЙ ТОКЕН + RENDER PORT!")
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         print("✅ Старый webhook удалён")
     except:
         print("ℹ️ Webhook чист")
-    await dp.start_polling(bot)
+    
+    # Запускаем БОТ + FAKE SERVER параллельно
+    await asyncio.gather(
+        dp.start_polling(bot),
+        fake_web_server()
+    )
 
 if __name__ == '__main__':
     asyncio.run(main())
