@@ -145,4 +145,103 @@ async def balance_chosen(message: Message, state: FSMContext):
 
 # Чек-лист
 @dp.message(ReportStates.waiting_checklist)
-async def checklist_ch
+async def checklist_chosen(message: Message, state: FSMContext):
+    await state.update_data(checklist=message.text)
+    await message.answer(
+        "📝 Что сделали на смене для получения этого баланса?\n"
+        "Что не получилось для заработка больше?\n\n"
+        "(пишите подробно)"
+    )
+    await state.set_state(ReportStates.waiting_shift_description)
+
+# Описание смены
+@dp.message(ReportStates.waiting_shift_description)
+async def shift_description_chosen(message: Message, state: FSMContext):
+    await state.update_data(shift_description=message.text)
+    await message.answer("👥 Отчёт по фанам:\n\nПример: `T*p*un @jw*s1*41 скупает все анал видео по 40 баксов. меньше не продавайте ему`")
+    await state.set_state(ReportStates.waiting_fans)
+
+# Фаны
+@dp.message(ReportStates.waiting_fans)
+async def fans_chosen(message: Message, state: FSMContext):
+    await state.update_data(fans=message.text)
+    await message.answer("🏆 Отчёт по топам:\n\nПример: `M*rc C*lm*r @u44*72*2*5 типнул просто так, продолжаем игнорить!`")
+    await state.set_state(ReportStates.waiting_tops)
+
+# ✅ ФИНАЛ — отправляем ВСЕ ОТЧЕТЫ ТОЛЬКО ЗДЕСЬ!
+@dp.message(ReportStates.waiting_tops)
+async def finalize_report(message: Message, state: FSMContext):
+    data = await state.get_data()
+    
+    # 1. ОСНОВНОЙ ОТЧЁТ (всё кроме топов)
+    main_report = f"""📊 СМЕННЫЙ ОТЧЁТ
+
+📅 {data['date']} / {data['shift']} / {data['user']}
+💰 Баланс: ${data['balance']} (с вычетом комиссий)
+✅ Чек-лист: {data['checklist']}
+📝 Смена: {data['shift_description']}
+👥 Фаны: {data['fans']}"""
+    
+    # 2. ОТЧЕТ ПО ТОПАМ (отдельно)
+    tops_report = f"""🏆 ТОПЫ ДНЯ
+
+📅 {data['date']} {data['shift']}
+👤 Сменщик: {data['user']}
+📝 {message.text}"""
+    
+    # Отправляем в группу
+    group_id = os.getenv('GROUP_ID')
+    thread_reports = os.getenv('THREAD_REPORTS')
+    thread_tops = os.getenv('THREAD_TOPS')
+    
+    # Основной отчёт
+    await bot.send_message(
+        chat_id=group_id,
+        message_thread_id=int(thread_reports),
+        text=main_report
+    )
+    
+    # Отчёт по топам
+    await bot.send_message(
+        chat_id=group_id,
+        message_thread_id=int(thread_tops),
+        text=tops_report
+    )
+    
+    await message.answer(
+        "✅ Отчёт полностью отправлен!\n\n"
+        "📊 Основной → THREAD_REPORTS\n"
+        "🏆 Топы → THREAD_TOPS",
+        reply_markup=get_main_keyboard()
+    )
+    await state.clear()
+
+# Инструкция
+@dp.message(F.text == "ℹ️ Инструкция")
+async def show_help(message: Message):
+    await message.answer(
+        "📖 Пошагово:\n"
+        "1️⃣ Сессия → 2️⃣ Смена\n"
+        "3️⃣ Баланс → 4️⃣ Чек-лист\n"
+        "5️⃣ Описание → 6️⃣ Фаны → 7️⃣ Топы\n\n"
+        "✅ Отчёты отправляются ТОЛЬКО после топов!",
+        reply_markup=get_main_keyboard()
+    )
+
+# Обработчик отмены
+@dp.message(F.text == "⬅️ Отмена")
+async def cancel_handler(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("❌ Отмена.", reply_markup=get_main_keyboard())
+
+# Запуск
+async def start_bot():
+    print("🚀 Starting bot...")
+    await dp.start_polling(bot)
+
+async def main():
+    await asyncio.gather(start_bot(), fake_web_server())
+
+if __name__ == '__main__':
+    print("🎯 Report bot v2.2 — FIXED!")
+    asyncio.run(main())
