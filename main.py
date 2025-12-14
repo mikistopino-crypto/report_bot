@@ -94,4 +94,39 @@ async def session_chosen(message: Message, state: FSMContext):
     await state.set_state(ReportStates.waiting_shift)
 
 @dp.message(ReportStates.waiting_shift)
-async def shift_chosen
+async def shift_chosen(message: Message, state: FSMContext):  # ✅ СКОБКИ ДОБАВЛЕНЫ!
+    if message.text == "⬅️ Отмена":
+        await state.clear()
+        await message.answer("❌ Отмена.", reply_markup=get_main_keyboard())
+        return
+    await state.update_data(shift=message.text)
+    today = get_today_date()
+    await state.update_data(date=today, user=message.from_user.first_name)
+    await message.answer(f"💰 Баланс за смену {message.text}\n(вписывайте С ВЫЧЕТОМ комиссий платформы):")
+    await state.set_state(ReportStates.waiting_balance)
+
+@dp.message(ReportStates.waiting_balance)
+async def balance_chosen(message: Message, state: FSMContext):
+    await state.update_data(balance=message.text)
+    await message.answer("✅ Выполнение чек-листа? (Да/Нет/Частично):")
+    await state.set_state(ReportStates.waiting_checklist)
+
+@dp.message(ReportStates.waiting_checklist)
+async def checklist_chosen(message: Message, state: FSMContext):
+    await state.update_data(checklist=message.text)
+    await message.answer("📝 Что сделали на смене для получения этого баланса?\nЧто не получилось для заработка больше?\n(пишите подробно)")
+    await state.set_state(ReportStates.waiting_shift_description)
+
+@dp.message(ReportStates.waiting_shift_description)
+async def shift_description_chosen(message: Message, state: FSMContext):
+    await state.update_data(shift_description=message.text)
+    await message.answer("👥 Отчёт по фанам:\nПример: `T*p*un @jw*s1*41 скупает все анал видео по 40 баксов`")
+    await state.set_state(ReportStates.waiting_fans)
+
+@dp.message(ReportStates.waiting_fans)
+async def fans_chosen(message: Message, state: FSMContext):
+    await state.update_data(fans=message.text)
+    await message.answer("🏆 Отчёт по топам:\nПример: `M*rc C*lm*r @u44*72*2*5 типнул просто так`")
+    await state.set_state(ReportStates.waiting_tops)
+
+@dp
