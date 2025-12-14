@@ -101,4 +101,70 @@ async def balance_chosen(message: Message, state: FSMContext):
 
 @dp.message(ReportStates.waiting_checklist)
 async def checklist_chosen(message: Message, state: FSMContext):
-    await state.update_data(checklist=message.t
+    await state.update_data(checklist=message.text)
+    await message.answer("📝 Что сделали на смене для получения этого баланса?\nЧто не получилось для заработка больше?\n(пишите подробно)")
+    await state.set_state(ReportStates.waiting_shift_description)
+
+@dp.message(ReportStates.waiting_shift_description)
+async def shift_description_chosen(message: Message, state: FSMContext):
+    await state.update_data(shift_description=message.text)
+    await message.answer("👥 Отчёт по фанам:\nПример: `T*p*un @jw*s1*41 скупает все анал видео по 40 баксов`")
+    await state.set_state(ReportStates.waiting_fans)
+
+@dp.message(ReportStates.waiting_fans)
+async def fans_chosen(message: Message, state: FSMContext):
+    await state.update_data(fans=message.text)
+    await message.answer("🏆 Отчёт по топам:\nПример: `M*rc C*lm*r @u44*72*2*5 типнул просто так`")
+    await state.set_state(ReportStates.waiting_tops)
+
+@dp.message(ReportStates.waiting_tops)
+async def finalize_report(message: Message, state: FSMContext):
+    data = await state.get_data()
+    
+    main_report = f"""📊 СМЕННЫЙ ОТЧЁТ
+
+📅 {data['date']} / {data['shift']} / {data['user']}
+💰 Баланс: ${data['balance']} (с вычетом комиссий)
+✅ Чек-лист: {data['checklist']}
+📝 Смена: {data['shift_description']}
+👥 Фаны: {data['fans']}"""
+    
+    tops_report = f"""🏆 ТОПЫ ДНЯ
+
+📅 {data['date']} {data['shift']}
+👤 Сменщик: {data['user']}
+📝 {message.text}"""
+    
+    group_id = os.getenv('GROUP_ID')
+    thread_reports = os.getenv('THREAD_REPORTS')
+    thread_tops = os.getenv('THREAD_TOPS')
+    
+    await bot.send_message(chat_id=group_id, message_thread_id=int(thread_reports), text=main_report)
+    await bot.send_message(chat_id=group_id, message_thread_id=int(thread_tops), text=tops_report)
+    
+    await message.answer("✅ Отчёт полностью отправлен!\n📊 Основной → REPORTS\n🏆 Топы → TOPS", reply_markup=get_main_keyboard())
+    await state.clear()
+
+@dp.message(F.text == "ℹ️ Инструкция")
+async def show_help(message: Message):
+    await message.answer(
+        "📖 Пошагово:\n1️⃣ Сессия → 2️⃣ Смена → 3️⃣ Баланс → 4️⃣ Чек-лист\n5️⃣ Описание → 6️⃣ Фаны → 7️⃣ Топы\n✅ Отчёты только после топов!",
+        reply_markup=get_main_keyboard()
+    )
+
+@dp.message(F.text == "⬅️ Отмена")
+async def cancel_handler(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("❌ Отмена.", reply_markup=get_main_keyboard())
+
+async def main():
+    print("🚀 Report Bot v7.0 — НОВЫЙ ТОКЕН!")
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        print("✅ Старый webhook удалён")
+    except:
+        print("ℹ️ Webhook чист")
+    await dp.start_polling(bot)
+
+if __name__ == '__main__':
+    asyncio.run(main())
