@@ -158,8 +158,8 @@ async def cancel_handler(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("❌ Отмена.", reply_markup=get_main_keyboard())
 
+# ✅ FAKE SERVER ПЕРВЫМ (Render увидит порт!)
 async def fake_web_server():
-    """Fake HTTP server для Render PORT 10000"""
     app = web.Application()
     app.router.add_get('/', lambda _: web.Response(text='Report Bot OK'))
     app.router.add_get('/health', lambda _: web.Response(text='healthy'))
@@ -167,22 +167,22 @@ async def fake_web_server():
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', 10000)
     await site.start()
-    print("✅ Fake HTTP server на порту 10000 (Render happy!)")
+    print("✅ Fake HTTP server на порту 10000 ✓ Render happy!")
     await asyncio.Event().wait()
 
-async def main():
-    print("🚀 Report Bot v8.0 — НОВЫЙ ТОКЕН + RENDER PORT!")
+async def bot_polling():
+    print("🚀 Starting bot polling...")
     try:
         await bot.delete_webhook(drop_pending_updates=True)
-        print("✅ Старый webhook удалён")
+        print("✅ Webhook cleared")
     except:
-        print("ℹ️ Webhook чист")
-    
-    # Запускаем БОТ + FAKE SERVER параллельно
-    await asyncio.gather(
-        dp.start_polling(bot),
-        fake_web_server()
-    )
+        print("ℹ️ No webhook")
+    await dp.start_polling(bot)
+
+async def main():
+    print("🎯 Report Bot v9.0 — PORT 10000 + BOT!")
+    # FAKE SERVER СНАЧАЛА → Render увидит порт!
+    await asyncio.gather(fake_web_server(), bot_polling())
 
 if __name__ == '__main__':
     asyncio.run(main())
